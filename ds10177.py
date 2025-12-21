@@ -1,5 +1,3 @@
-
-#精度超参数的验证
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -13,7 +11,7 @@ import os
 import time
 from itertools import islice
 
-# --- 1. 配置区 ---
+
 MODEL_ID = "/home/leimingyu/Qwen2.5-3B-Instruct" 
 DATASET_NAME = "wikitext"
 DATASET_CONFIG = "wikitext-103-v1"
@@ -22,7 +20,7 @@ EVALUATION_SAMPLES = 128
 SEQ_LENGTH = 1024
 CLIPPING_PERCENTILES = torch.tensor([0.001, 0.999])
 
-# --- 2. 核心算法 (无变化) ---
+
 def final_daq_quantization(func, bits, calibration_data, n_samples=20000):
     if calibration_data is None or calibration_data.numel() == 0: return torch.tensor([])
     x_range = (calibration_data.min().item(), calibration_data.max().item())
@@ -42,12 +40,11 @@ def final_daq_quantization(func, bits, calibration_data, n_samples=20000):
     kmeans.fit(resampled_x.reshape(-1, 1))
     return torch.from_numpy(np.sort(kmeans.cluster_centers_.flatten())).float()
 
-# 使用我们最终优化的Triton版本作为加速模块
+
 try:
     import triton
     import triton.language as tl
     TRITON_AVAILABLE = True
-    print("Triton已成功导入，将使用Triton加速。")
 
     @triton.jit
     def _daq_kernel_linear_scan(x_ptr, output_ptr, levels_ptr, lut_ptr, n_elements, num_levels, min_val, max_val, BLOCK_SIZE: tl.constexpr):
@@ -70,7 +67,7 @@ try:
 
 except ImportError:
     TRITON_AVAILABLE = False
-    print("警告：Triton未安装。")
+    print("Warning: Triton Uninstalled")
 
 class QuantizedActivation(nn.Module):
     def __init__(self, original_act_fn, quant_levels):
@@ -105,25 +102,25 @@ class QuantizedActivation(nn.Module):
             return output
 
         else:
-            # ---------- 🔥 高速 GPU fallback（不使用 bucketize） ----------
+
             levels = self.quant_levels.to(x.device)
             lut = self.lut.to(x.device)
             
-            # 1) clamp
+         
             x_clamped = torch.clamp(x, levels[0], levels[-1])
 
-            # 2) broadcasting 最近邻 (N,K) 距离矩阵
+      
             # dist: [N, K]
             dist = torch.abs(x_clamped.unsqueeze(-1) - levels.unsqueeze(0))
 
-            # 3) argmin 得到最近的量化级别
+      
             indices = torch.argmin(dist, dim=-1)
 
-            # 4) 查 LUT 得到输出
+  
             return lut[indices]
 
 
-# --- 3. 辅助函数 ---
+
 def calibrate_and_get_activations(model, tokenizer, num_samples=32):
     print(f"--- 开始校准：在 {num_samples} 个样本上收集激活值 ---")
     dataset = load_dataset(DATASET_NAME, DATASET_CONFIG, split="train", streaming=False)
