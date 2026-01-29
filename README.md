@@ -24,6 +24,6 @@ Our findings show that $\alpha=0.7$ provides an optimal balance between capturin
 ## 🛠️ Installation
 
 ```bash
-git clone [https://github.com/YourUsername/DA-Q.git](https://github.com/YourUsername/DA-Q.git)
+git clone https://github.com/MinkyRay/DA-Q.git
 cd DA-Q
-pip install -r requirements.txtv
+pip install -r requirements.txt
